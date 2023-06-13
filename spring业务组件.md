@@ -27,11 +27,56 @@
 基于Web方法,从参数中寻找可以作为唯一键,进行控制。改造难度低,仅需要服务端改造,前端无感知。具体参考tomato仓库
 ```
 
+### 循环依赖
+
+单例循环依赖
+
+业务重现
+
+```sql
+两个对象的创建，互相依赖与对方
+```
+
+spring解决方案
+
+```java
+/** 一级缓存：用于存放完全初始化好的 bean **/
+private final Map<String, Object> singletonObjects = new ConcurrentHashMap<String, Object>(256);
+
+/** 二级缓存：存放原始的 bean 对象（尚未填充属性），用于解决循环依赖 */
+private final Map<String, Object> earlySingletonObjects = new HashMap<String, Object>(16);
+
+/** 三级级缓存：存放 bean 工厂对象，用于解决循环依赖 */
+private final Map<String, ObjectFactory<?>> singletonFactories = new HashMap<String, ObjectFactory<?>>(16);
+
+/**
+bean 的获取过程：先从一级获取，失败再从二级、三级里面获取
+
+创建中状态：是指对象已经 new 出来了但是所有的属性均为 null 等待被 init
+*/
+```
+
+业务流程
+
+```sql
+-- A 创建过程中需要 B，于是 A 将自己放到三级缓里面 ，去实例化 B
+
+-- B 实例化的时候发现需要 A，于是 B 先查一级缓存，没有，再查二级缓存，还是没有，再查三级缓存，找到了！
+	-- 然后把三级缓存里面的这个 A 放到二级缓存里面，并删除三级缓存里面的 A
+	-- B 顺利初始化完毕，将自己放到一级缓存里面（此时B里面的A依然是创建中状态）
+
+-- 然后回来接着创建 A，此时 B 已经创建结束，直接从一级缓存里面拿到 B ，然后完成创建，并将自己放到一级缓存里面
+
+-- 如此一来便解决了循环依赖的问题
+```
+
 ## spring组件
 
 ### AOP
 
-aop价值。使用aop实现图中《通过复制,粘帖的部分》
+aop价值。
+
+使用aop实现图中《通过复制,粘帖的部分》
 
 ![aop](C:\Users\it\Pictures\aop.png)
 
@@ -107,4 +152,36 @@ public class MyService {
 ```
 
 ### IOC
+
+ioc理解
+
+```sql
+-- IoC（Inversion of Control）是一种设计原则，也是Spring框架的核心概念之一。
+
+-- 它是一种反转控制的思想，即将对象的创建、依赖关系的管理和对象的生命周期交给容器来管理，而不是由开发者手动管理。
+
+-- IoC容器负责实例化对象、注入依赖关系以及销毁对象，开发者只需要声明需要的对象和它们的依赖关系，容器会负责将其组装并提供给其他组件使用。
+```
+
+声明方式
+
+```sql
+-- @Component注解
+@Component是Spring的通用组件注解，它可以用于标识任何类型的组件，包括服务组件。
+
+-- @Service注解
+@Service是@Component注解的特殊形式，用于标识服务组件。通常用于表示业务逻辑层的组件，方便在代码中做更明确的区分。
+
+-- @Repository注解
+@Repository是@Component注解的特殊形式，用于标识数据访问组件。通常用于表示数据访问层的组件，如DAO（数据访问对象）或Repository。
+
+-- @Controller注解
+@Controller是@Component注解的特殊形式，用于标识控制器组件。通常用于表示控制器层的组件，处理用户请求和返回视图。
+
+-- 其他衍生注解来声明服务组件
+@SpringBootApplicaton、@Configuration等，它们具有特定的语义和功能，并适用于特定的场景。
+
+-- 注意
+建议使用更具体的注解（如@Service、@Repository、@Controller）来标识服务组件，以提高代码的可读性和可维护性。
+```
 
