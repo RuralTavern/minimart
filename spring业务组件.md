@@ -70,6 +70,40 @@ bean 的获取过程：先从一级获取，失败再从二级、三级里面获
 -- 如此一来便解决了循环依赖的问题
 ```
 
+### 高并发
+
+解决方案
+
+![system-design](C:\Users\it\Pictures\system-design.png)
+
+```sql
+-- 系统拆分
+将一个系统拆分为多个子系统，用 RPC 来搞。然后每个系统连一个数据库，这样本来就一个库，现在多个数据库，不也可以扛高并发么。
+	-- 熔断
+	-- 降级
+	
+-- 缓存
+你可以考虑考虑你的项目里，那些承载主要请求的读场景，怎么用缓存来抗高并发。
+
+-- MQ
+你得考虑考虑你的项目里，那些承载复杂写业务逻辑的场景里，如何用 MQ 来异步写，提升并发性。大量的写请求灌入 MQ 里，后边系统消费后慢慢写，控制在 MySQL 承载范围之内。
+
+-- 分库分表
+一个数据库拆分为多个库，多个库来扛更高的并发；然后将一个表拆分为多个表，每个表的数据量保持少一点，提高 SQL 跑的性能。
+
+-- 读写分离
+大部分时候数据库可能也是读多写少，没必要所有请求都集中在一个库上吧，可以搞个主从架构，主库写入，从库读取，搞一个读写分离。读流量太多的时候，还可以加更多的从库。
+
+-- ElasticSearch
+ES 是分布式的，可以随便扩容，分布式天然就可以支撑高并发，因为动不动就可以扩容加机器来扛更高的并发。那么一些比较简单的查询、统计类的操作，可以考虑用 ES 来承载，还有一些全文搜索类的操作，也可以考虑用 ES 来承载。
+```
+
+#### 流量控制
+
+
+
+
+
 ## spring组件
 
 ### AOP
@@ -185,3 +219,86 @@ ioc理解
 建议使用更具体的注解（如@Service、@Repository、@Controller）来标识服务组件，以提高代码的可读性和可维护性。
 ```
 
+### Interceptor
+
+Interceptor理解
+
+```sql
+-- Interceptor（拦截器）是一种常见的设计模式，在软件开发中用于拦截并处理请求、调用或操作。
+```
+
+例如 spring自定义拦截请求
+
+自定义拦截器
+
+```java
+package com.yami.shop.common.i18n;
+
+
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Component;
+import org.springframework.web.servlet.HandlerInterceptor;
+import org.springframework.web.servlet.i18n.LocaleChangeInterceptor;
+
+import javax.servlet.ServletException;
+import javax.servlet.http.HttpServletRequest;
+import javax.servlet.http.HttpServletResponse;
+
+/**
+ * @author ellen
+ */
+@Component("localeChangeInterceptorDemo")
+@Slf4j
+public class YamiLocaleChangeInterceptorDemo implements HandlerInterceptor {
+    @Autowired
+    LocaleChangeInterceptor localeChangeInterceptor;
+
+    @Override
+    public boolean preHandle(HttpServletRequest request, HttpServletResponse response, Object handler)  {
+        try {
+            //多语言兼容
+            localeChangeInterceptor.preHandle(request,response,handler);
+        } catch (ServletException e) {
+            e.printStackTrace();
+        }
+        System.out.println("拦截器执行逻辑处");
+        return true;
+    }
+}
+```
+
+注册到spring请求过程中
+
+```java
+package com.yami.shop.common.config;
+
+import com.yami.shop.common.i18n.YamiLocaleChangeInterceptorDemo;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.web.servlet.config.annotation.InterceptorRegistry;
+import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
+
+
+/**
+ * @author ellen
+ */
+//@Configuration
+public class WebMvcConfigDemo implements WebMvcConfigurer{
+
+    @Autowired
+    private YamiLocaleChangeInterceptorDemo yamiLocaleChangeInterceptorDemo;
+
+
+    //此为测试方法，不发到生产
+    @Override
+    public void addInterceptors(InterceptorRegistry registry) {
+        registry.addInterceptor(yamiLocaleChangeInterceptorDemo)
+                .addPathPatterns("/**")
+                .order(1)
+                .excludePathPatterns("/open/**");
+    }
+}
+
+```
+
+### filter
